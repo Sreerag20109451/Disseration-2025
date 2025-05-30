@@ -1,0 +1,108 @@
+var wdpa = ee.FeatureCollection("WCMC/WDPA/current/polygons")
+var ndbrGeometry = ee.FeatureCollection("projects/ee-20109451/assets/WDPA_WDOECM_May2025_Public_902492_shp-polygons")
+var era5_monthly = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR")
+var era5_daily = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
+
+
+// Baseline period 1961 = 1990
+
+var baselinePeriod = ee.DateRange('1961-01-01', '1990-12-31');
+
+
+// Visualising Study Region
+Map.centerObject(ndbrGeometry, 9)
+
+Map.addLayer(ndbrGeometry, {color : "red"}, "NDBR Boundaries")
+
+
+//Retrieving Baseline max temperature data
+
+var band = "temperature_2m_max"
+
+var era5_temp_maximum = era5_daily.select(band).filterDate(baselinePeriod)
+
+
+// Aggregating mean of maximum temperature over the region
+
+function aggregateMaximumOverRegion(image){
+  var scale = image.select(band).projection().nominalScale();
+  var meanOverRegion = image.reduceRegion({
+    reducer : ee.Reducer.mean(),
+    geometry: ndbrGeometry.geometry(),
+    bestEffort:true,
+    crs : era5_daily.select(band).first().projection(),
+    scale : scale
+  })
+  
+  var meanMaxTemp = meanOverRegion.get(band)
+  return image.set("Mean_Maximum_Temperature" , meanMaxTemp)
+  
+  
+}
+
+print(era5_temp_maximum.size())
+
+//Apply Aggregation Over the imageCollection
+
+var aggregatedCollection  = era5_temp_maximum.map(aggregateMaximumOverRegion)
+
+
+// Set Features of  CSV 
+var features = aggregatedCollection.map(function(image) {
+  
+  var meanTemp =  ee.Number(image.get('Mean_Maximum_Temperature'))
+  var meanTempInCelcius = meanTemp.subtract(273.15)
+  return ee.Feature(null, {
+    'date': image.date().format('YYYY-MM-DD'),
+    'mean_max_temp':meanTempInCelcius
+  });
+});
+
+
+Export.table.toDrive({
+  collection: features,
+  description: 'Mean_Max_Temp_NDBR',
+  fileFormat: 'CSV'
+});
+
+
+// Retreieving Baseline minimum temmperature data
+var band = "temperature_2m_min"
+
+var era5_temp_maximum = era5_daily.select(band).filterDate(baselinePeriod)
+
+function aggregateMinimumOverRegion(image){
+   var scale = image.select(band).projection().nominalScale();
+  var meanOverRegion = image.reduceRegion({
+    reducer : ee.Reducer.mean(),
+    geometry: ndbrGeometry.geometry(),
+    bestEffort:true,
+    crs : era5_daily.select(band).first().projection(),
+    scale : scale
+  })
+  
+  var meanMinTemp = meanOverRegion.get(band)
+  return image.set("Mean_Minimum_Temperature" , meanMinTemp)
+  
+  
+}
+
+var aggregatedCollection  = era5_temp_maximum.map(aggregateMinimumOverRegion)
+
+var features = aggregatedCollection.map(function(image) {
+  
+  var meanTemp =  ee.Number(image.get('Mean_Minimum_Temperature'))
+  var meanTempInCelcius = meanTemp.subtract(273.15)
+  return ee.Feature(null, {
+    'date': image.date().format('YYYY-MM-DD'),
+    'mean_min_temp':meanTempInCelcius
+  });
+});
+
+
+Export.table.toDrive({
+  collection: features,
+  description: 'Mean_Min_Temp_NDBR',
+  fileFormat: 'CSV'
+});
+
