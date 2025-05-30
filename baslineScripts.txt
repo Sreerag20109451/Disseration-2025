@@ -1,8 +1,3 @@
-var wdpa = ee.FeatureCollection("WCMC/WDPA/current/polygons")
-var ndbrGeometry = ee.FeatureCollection("projects/ee-20109451/assets/WDPA_WDOECM_May2025_Public_902492_shp-polygons")
-var era5_monthly = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR")
-var era5_daily = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
-
 
 // Baseline period 1961 = 1990
 
@@ -61,7 +56,7 @@ var features = aggregatedCollection.map(function(image) {
 
 Export.table.toDrive({
   collection: features,
-  description: 'Mean_Max_Temp_NDBR',
+  description: 'Mean_Max_Temp_NDBR_Baseline',
   fileFormat: 'CSV'
 });
 
@@ -102,7 +97,7 @@ var features = aggregatedCollection.map(function(image) {
 
 Export.table.toDrive({
   collection: features,
-  description: 'Mean_Min_Temp_NDBR',
+  description: 'Mean_Min_Temp_NDBR_Baseline',
   fileFormat: 'CSV'
 });
 
