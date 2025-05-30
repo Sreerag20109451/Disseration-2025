@@ -1,0 +1,157 @@
+var wdpa = ee.FeatureCollection("WCMC/WDPA/current/polygons"),
+var era5_daily = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR"),
+var ndbrGeometry = ee.FeatureCollection("projects/ee-20109451/assets/WDPA_WDOECM_May2025_Public_902492_shp-polygons");
+
+
+
+
+var studyPeriod = ee.DateRange('2004-01-01', '2024-12-31');
+
+// Visualising Study Region
+Map.centerObject(ndbrGeometry, 9)
+
+Map.addLayer(ndbrGeometry, {color : "red"}, "NDBR Boundaries")
+
+
+//Retrieving Baseline mean temperature data
+
+var avg_temp_band = "temperature_2m"
+
+var era5_temp_avg = era5_daily.select(avg_temp_band).filterDate(studyPeriod)
+
+// Aggregating the mean temperature over the region
+
+function aggregateTempOverRegion(image){
+  var scale = image.select(avg_temp_band).projection().nominalScale();
+  var meanOverRegion = image.reduceRegion({
+    reducer : ee.Reducer.mean(),
+    geometry: ndbrGeometry.geometry(),
+    bestEffort:true,
+    crs : era5_daily.select(avg_temp_band).first().projection(),
+    scale : scale
+  })
+  
+  var temp = meanOverRegion.get(avg_temp_band)
+  return image.set("Avg_Daily_Temperature" , temp)
+  
+}
+
+var aggregatedTempCollection  = era5_temp_avg.map(aggregateTempOverRegion)
+
+// Set Features of  CSV 
+var avg_temp_features = aggregatedTempCollection.map(function(image) {
+  
+  var meanTemp =  ee.Number(image.get('Avg_Daily_Temperature'))
+  var meanTempInCelcius = meanTemp.subtract(273.15)
+  return ee.Feature(null, {
+    'date': image.date().format('YYYY-MM-DD'),
+    'avg_daily_temp':meanTempInCelcius
+  });
+});
+
+
+// Maximum Temperature over the region
+
+
+var max_temp_band = "temperature_2m_max"
+
+var era5_temp_maximum = era5_daily.select(max_temp_band).filterDate(studyPeriod)
+
+
+// Aggregating mean of maximum temperature over the region
+
+function aggregateMaximumOverRegion(image){
+  var scale = image.select(max_temp_band).projection().nominalScale();
+  var meanOverRegion = image.reduceRegion({
+    reducer : ee.Reducer.mean(),
+    geometry: ndbrGeometry.geometry(),
+    bestEffort:true,
+    crs : era5_daily.select(max_temp_band).first().projection(),
+    scale : scale
+  })
+  
+  var meanMaxTemp = meanOverRegion.get(max_temp_band)
+  return image.set("Mean_Maximum_Temperature" , meanMaxTemp)
+  
+  
+}
+
+print(era5_temp_maximum.size())
+
+//Apply Aggregation Over the imageCollection
+
+var aggregated_temp_max  = era5_temp_maximum.map(aggregateMaximumOverRegion)
+
+
+// Set Features of  CSV 
+var max_temp_features = aggregated_temp_max.map(function(image) {
+  
+  var meanTemp =  ee.Number(image.get('Mean_Maximum_Temperature'))
+  var meanTempInCelcius = meanTemp.subtract(273.15)
+  return ee.Feature(null, {
+    'date': image.date().format('YYYY-MM-DD'),
+    'mean_max_temp':meanTempInCelcius
+  });
+});
+
+
+// Retreieving Baseline minimum temmperature data
+var min_band = "temperature_2m_min"
+
+var era5_temp_minimum = era5_daily.select(min_band).filterDate(studyPeriod)
+
+function aggregateMinimumOverRegion(image){
+   var scale = image.select(min_band).projection().nominalScale();
+  var meanOverRegion = image.reduceRegion({
+    reducer : ee.Reducer.mean(),
+    geometry: ndbrGeometry.geometry(),
+    bestEffort:true,
+    crs : era5_daily.select(min_band).first().projection(),
+    scale : scale
+  })
+  
+  var meanMinTemp = meanOverRegion.get(min_band)
+  return image.set("Mean_Minimum_Temperature" , meanMinTemp)
+  
+  
+}
+
+var aggregated_min_temp_Collection  = era5_temp_minimum.map(aggregateMinimumOverRegion)
+
+var min_temp_features = aggregated_min_temp_Collection.map(function(image) {
+  
+  var meanTemp =  ee.Number(image.get('Mean_Minimum_Temperature'))
+  var meanTempInCelcius = meanTemp.subtract(273.15)
+  return ee.Feature(null, {
+    'date': image.date().format('YYYY-MM-DD'),
+    'mean_min_temp':meanTempInCelcius
+  });
+});
+
+
+
+
+// Export avg_temp data to CSV
+Export.table.toDrive({
+  collection: avg_temp_features,
+  description: 'Avg_Daily_Temperature_NDBR',
+  fileFormat: 'CSV'
+});
+
+
+//Export max_temp data
+Export.table.toDrive({
+  collection: max_temp_features,
+  description: 'Mean_Max_Temp_NDBR',
+  fileFormat: 'CSV'
+});
+
+//Export min_tempdata
+Export.table.toDrive({
+  collection: min_temp_features,
+  description: 'Mean_Min_Temp_NDBR',
+  fileFormat: 'CSV'
+});
+
+
+
